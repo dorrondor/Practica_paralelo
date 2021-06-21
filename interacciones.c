@@ -30,8 +30,6 @@ void movimiento(struct persona_virus *personas, int tam_poblacion, int tam_escen
 		if((personas[i].pos[1]+personas[i].vel[1]) < tam_escenario && (personas[i].pos[1]+personas[i].vel[1]) > 0)
 			personas[i].pos[1] += personas[i].vel[1];
         
-
-
 		//Hurrengo iterazioarako velocidad aldatu.
 		personas[i].vel[0] = calc_vel();
 		personas[i].vel[1] = calc_vel();
@@ -50,7 +48,7 @@ int propagacion(struct persona_virus *personas, struct poblaciones *poblacion, i
 	int kontajiatuak = 0;
 	int i;
 	int tam = (poblacion->tam)/world_size;
-	printf("%d\n",tam);
+	//printf("%d\n",tam);
 
 	for(i=0; i<(poblacion->tam)/world_size; i++){
 

@@ -10,7 +10,7 @@ definiciones.h
 
 struct poblaciones
 {
-	int tam, radio_cont, periodo_incu, periodo_rec, tam_escenario, tiempo_simulacion;
+	int tam, radio_cont, periodo_incu, periodo_rec, tam_escenario, tiempo_simulacion, metrica, posicion;
 	float prob_cont, prob_camb_vel;
 };
 
@@ -23,9 +23,10 @@ struct persona_virus
 	int pos[2], vel[2];
 };
 
-
-//extern int tam_escenario;
-
-//extern int tiempo_simulacion;
+struct metricas
+{
+	int sano, incubando, contagiado, recuperado, muerto, anterior;
+    float r0;
+};
 
 #endif

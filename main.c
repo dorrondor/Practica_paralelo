@@ -13,6 +13,11 @@ Programa nagusia
 #include "probabilidad.h"
 
 int main(int argc, char *argv[]){
+
+    struct timeval begin, end;
+	remove("Resultato.metricas");
+	remove("Resultato.pos");
+
 	
 	// irakurri sarrera-datuak
     if (argc != 5) {
@@ -20,7 +25,8 @@ int main(int argc, char *argv[]){
         exit (-1);
     }
 
-	int i, alfa, beta, s, kontajiatuak, j, k, kont;
+	int i, alfa, beta, s, kontajiatuak, j, k, kont, sano, muerto, incubando, contagiado, recuperado;
+	float r0;
 	int world_rank, world_size;
 
 	MPI_Init(&argc, &argv);
@@ -28,11 +34,10 @@ int main(int argc, char *argv[]){
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-	if (world_size < 2) {
+	/*if (world_size < 2) {
 		fprintf(stderr, "World tiene que ser >= 2%s\n", argv[0]);
     		MPI_Abort(MPI_COMM_WORLD, 1);
-  	}
-
+  	}*/
 
     alfa = atoi(argv[2]);
     beta = atoi(argv[3]);
@@ -41,20 +46,32 @@ int main(int argc, char *argv[]){
     
     struct poblaciones poblacion;
     struct persona_virus *personas, *jaso, *kontaj, *kontag_global;
+    struct metricas metrica;
+    metrica.anterior=1;
     int *count = malloc(world_size*sizeof(int));    
     int *despla = malloc(world_size*sizeof(int));
 
 	leer_parametros(&poblacion, argv[1]);
     personas = malloc(poblacion.tam*sizeof(struct persona_virus));
 
-	if (poblacion.tam%world_size!=0){
-		printf("El tamaño de la poblacion y la cantidad de procesadores deben ser múltiplos\n");
-		MPI_Abort(MPI_COMM_WORLD, 1);
-	}
+	
 
     //poblacioneko parametroak eta aldagai globalak jaso fitxategi batetik.
     if(world_rank == 0){
-    	//leer_parametros(&poblacion, argv[1]);
+
+        if (poblacion.tam%world_size!=0){
+        printf("\nEl tamaño de la poblacion y la cantidad de procesadores deben ser múltiplos\n\n");
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        }
+
+        if(poblacion.tam < world_size){
+        	printf("\n El numero de nodos %d no puede ser mayor que la poblacion %d \n\n", world_size, poblacion.tam);
+        	MPI_Abort(MPI_COMM_WORLD, 1);
+        }
+
+        //Denbora neurketak egiteko aldagaiak hasieratu
+        gettimeofday(&begin, 0);
+
     	inicializar(poblacion.tam, personas, poblacion.tam_escenario, alfa, beta, s);
     	//Escoger el primer infectado de manera aleatoria.
     	paciente0(poblacion.tam, personas);
@@ -75,7 +92,7 @@ int main(int argc, char *argv[]){
     	//Calcular los estados y los contagios
     	k = 0;
     	kontajiatuak = propagacion(jaso, &poblacion, world_size);
-        printf("kontajiatuak: %d\n",kontajiatuak);
+        //printf("kontajiatuak: %d\n",kontajiatuak);
         
         if(kontajiatuak == 0){
             kontaj = malloc(sizeof(struct persona_virus));
@@ -87,7 +104,7 @@ int main(int argc, char *argv[]){
                 if(jaso[j].estado == 2){
                     //mempcpy
                     memcpy(&kontaj[k], &jaso[j], sizeof(struct persona_virus)); 
-			printf("%d %d %d %d %d\n",j,k, poblacion.tam/world_size, jaso[j].edad, kontaj[k].edad);  
+			//printf("%d %d %d %d %d\n",j,k, poblacion.tam/world_size, jaso[j].edad, kontaj[k].edad);  
                   k++;
                 }
             }
@@ -114,17 +131,54 @@ int main(int argc, char *argv[]){
             }
         }
    	free(kontag_global);
+	coger_metricas(&poblacion, personas, &metrica);
+/*	if(world_rank==0){
+		r0=(float) kont/ant;
+		if(kont==0)
+			ant=1;
+		else
+			ant=kont;
+		printf("R0 %f\n", r0);
+	}*/
 		if(i%5==0){
 			//Posizioa eta metrikak behar dira. Orduan zergaitik bidali pertsona guztiak? Ideia ondo dago baina ez da OSO POLITA.
 			MPI_Gather(&jaso[0], (poblacion.tam)/world_size, pers, personas, (poblacion.tam)/world_size, pers, 0, MPI_COMM_WORLD );
-			if(world_rank == 0)
-			escribir(&poblacion, personas);
+            MPI_Reduce(&metrica.sano, &sano, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_Reduce(&metrica.incubando, &incubando, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_Reduce(&metrica.contagiado, &contagiado, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_Reduce(&metrica.recuperado, &recuperado, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_Reduce(&metrica.muerto, &muerto, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_Reduce(&metrica.r0, &r0, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
+			if(world_rank == 0 && poblacion.metrica == 1){
+			metrica.sano=sano;
+			metrica.incubando=incubando;
+			metrica.contagiado=contagiado;
+			metrica.recuperado=recuperado;
+			metrica.muerto=muerto;
+			metrica.r0=r0;
+			escribir_metrica(&poblacion, personas, &metrica);
+			}
+			if(world_rank == 0 && poblacion.posicion == 1)
+			escribir_posicion(&poblacion, personas);
 		}
     }
 	free(jaso);
     free(personas);
 	free(despla);
 	free(count);
+	if(world_rank == 0){
+
+        gettimeofday(&end, 0);
+
+        long seconds = end.tv_sec - begin.tv_sec;
+        long microseconds = end.tv_usec - begin.tv_usec;
+        double elapsed = seconds + microseconds*1e-6;
+
+        printf("Time measured: %.3f seconds.\n", elapsed);
+	}
+
 	MPI_Finalize();
+
+
 	return(0);
 }

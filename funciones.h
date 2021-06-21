@@ -17,8 +17,16 @@ funciones.h
 
  int porciento(int tam, int c);
 
+ void coger_metricas(struct poblaciones *poblacion, struct persona_virus *personas, struct metricas *metrica);
+
 //EScribir los resultados en un fichero
- void escribir(struct poblaciones *poblacion, struct persona_virus *personas);
+ void escribir_metrica(struct poblaciones *poblacion, struct persona_virus *personas, struct metricas *metrica);
+
+ void escribir_posicion(struct poblaciones *poblacion, struct persona_virus *personas);
+
+//EScribir los resultados en un fichero
+// void escribir_metrica(struct poblaciones *poblacion, struct persona_virus *personas);
+// void escribir_posicion(struct poblaciones *poblacion, struct persona_virus *personas);
 
  void erakutsi(struct persona_virus *personas, struct poblaciones *poblacion);
  
